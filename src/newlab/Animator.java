@@ -9,8 +9,7 @@ package newlab;
  *
  * @author Пользователь
  */
-import java.awt.Color;
-import java.awt.Graphics;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
@@ -83,6 +82,11 @@ public class Animator implements Runnable{
     Cell[][] cells = new Cell[12][12];
     int heroI;
     int heroJ;
+
+    int heroX;
+    int heroY;
+    int heroDx = 10;
+    int heroDy=10;
     //Cell end;
     int heightOfCell = 60;
     int widthOfCell = 60;
@@ -98,8 +102,15 @@ public class Animator implements Runnable{
     BufferedImage miha;
     BufferedImage happyEnd;
 
+    BufferedImage buffer;
+    Graphics bufferG;
+
+    int level=1;
+    int levelCount = 3;
     public Animator(Graphics g) {
-        this.g = g;
+        this.g =g;
+        buffer = new BufferedImage(720, 720, BufferedImage.TYPE_INT_RGB);
+        bufferG = buffer.getGraphics();
         init();
     }
 
@@ -148,7 +159,10 @@ public class Animator implements Runnable{
         }
         heroI = start.getI();
         heroJ = start.getJ();
+        heroX = heroJ*widthOfCell;
+        heroY = heroI*heightOfCell;
         setVisibleAroundMiha();
+        Draw();
 
     }
 
@@ -164,51 +178,52 @@ public class Animator implements Runnable{
 
     private void init() {
         loadImages();
-        generate();
+        //generate();
     }
 
     void Draw() {
-        g.setColor(Color.BLACK);
+        bufferG.setColor(Color.WHITE);
+        bufferG.fillRect(0,0,720,720);
+        bufferG.setColor(Color.BLACK);
         for (int i = 0; i < matrixSize; i++) {
             for (int j = 0; j < matrixSize; j++) {
                 int x = j * widthOfCell;
                 int y = i * heightOfCell;
-                if (i == heroI && j == heroJ) {
-                    g.drawImage(miha, x, y, widthOfCell, heightOfCell, null);
-                } else if (cells[i][j].getVisible() == true) {
+                if (cells[i][j].getVisible() == true) {
                     if ((Math.abs(i - heroI) <= 1) && (Math.abs(j - heroJ) <= 1)) {
                         switch (cells[i][j].getType()) {
                             case WALL:
-                                g.drawImage(colorWall, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(colorWall, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case GRASS:
-                                g.drawImage(colorGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(colorGrass, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case MASHA:
-                                g.drawImage(colorMasha, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(colorMasha, x, y, widthOfCell, heightOfCell, null);
                                 break;
                         }
                     } else {
                         switch (cells[i][j].getType()) {
                             case WALL:
-                                g.drawImage(grayWall, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(grayWall, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case GRASS:
-                                g.drawImage(grayGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(grayGrass, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case MASHA:
-                                g.drawImage(grayMasha, x, y, widthOfCell, heightOfCell, null);
+                                bufferG.drawImage(grayMasha, x, y, widthOfCell, heightOfCell, null);
                                 break;
                         }
 
                     }
                 } else {
-                    g.fillRect(x, y, widthOfCell, heightOfCell);
+                    bufferG.fillRect(x, y, widthOfCell, heightOfCell);
 
                     //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
                 }
             }
         }
+        bufferG.drawImage(miha, heroX, heroY, widthOfCell, heightOfCell, null);
     }
     boolean isWin()
     {
@@ -228,6 +243,7 @@ public class Animator implements Runnable{
                  heroI = i;
                  heroJ = j;
                  setVisibleAroundMiha();
+                 Draw();
              }
          }
     }
@@ -246,14 +262,64 @@ public class Animator implements Runnable{
     }
        @Override
     public void run(){
-        while(isWin()== false){
-            Draw();
+           Font f = new Font("Verdana", Font.PLAIN, 30);
+           g.setFont(f);
+           g.setColor(Color.white);
 
-            try {
-                Thread.sleep(100);
-            } catch (Exception e) {
-            }
-        }
-        g.drawImage(happyEnd, 0, 0, matrixSize*widthOfCell,matrixSize*heightOfCell,null);
+           //
+           wallCount = 25-1-20;
+           grassCount = 20;
+           matrixSize = 5;
+           for(level=1;level<=levelCount;level++)
+           {
+               generate();
+               g.setColor(Color.white);
+               g.fillRect(0,0,1000,800);
+               g.setColor(Color.BLACK);
+               g.drawString("Уровень "+level, 400, 400);
+               try {
+                   Thread.sleep(2000);
+               } catch (Exception e) {
+               }
+               while(isWin()== false){
+                   g.drawImage(buffer,0,0,720,720,null);
+
+                   try {
+                       Thread.sleep(100);
+                   } catch (Exception e) {
+                   }
+                   if(heroX!=heroJ*widthOfCell)
+                   {
+                       if (heroX < heroJ*widthOfCell)
+                           heroX+=heroDx;
+                       else
+                           heroX-=heroDx;
+                       Draw();
+                   }
+                   if(heroY!=heroI*heightOfCell)
+                   {
+                       if (heroY < heroI*heightOfCell)
+                           heroY+=heroDy;
+                       else
+                           heroY-=heroDy;
+                       Draw();
+                   }
+               }
+               g.drawImage(happyEnd, 0, 0, 720,720,null);
+               try {
+                   Thread.sleep(2000);
+               } catch (Exception e) {
+               }
+               matrixSize+=1;
+               //grassCount+=1;
+               wallCount+=1;
+               grassCount=matrixSize*matrixSize-wallCount-1;
+           }
+           g.setColor(Color.WHITE);
+           g.fillRect(0,0,1000,800);
+           g.setColor(Color.BLACK);
+           g.drawString("Игра окончега", 400, 400);
+
+
     }
 }
