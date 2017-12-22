@@ -9,9 +9,13 @@ package newlab;
  *
  * @author Пользователь
  */
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,23 +80,24 @@ class Cell {
 
 }
 
-public class Animator implements Runnable{
+public class Animator implements Runnable {
 
     Graphics g;
-    Cell[][] cells = new Cell[12][12];
+    Cell[][] cells;
     int heroI;
     int heroJ;
-
+    //Cell end;
     int heroX;
     int heroY;
-    int heroDx = 10;
-    int heroDy=10;
-    //Cell end;
+    int dx = 5;
+    int dy = 5;
     int heightOfCell = 60;
     int widthOfCell = 60;
-    int wallCount = 44;
-    int grassCount = 99;
-    int matrixSize = 12;
+    int wallCount;
+    int grassCount;
+    int matrixHeight;
+    int matrixWidth;
+    int levelCount = 3;
     BufferedImage grayGrass;
     BufferedImage colorGrass;
     BufferedImage grayWall;
@@ -100,17 +105,19 @@ public class Animator implements Runnable{
     BufferedImage grayMasha;
     BufferedImage colorMasha;
     BufferedImage miha;
+    BufferedImage leftMiha;
+    BufferedImage rightMiha;
+    BufferedImage anfasMiha;
     BufferedImage happyEnd;
-
     BufferedImage buffer;
-    Graphics bufferG;
+    Graphics bufG;
 
-    int level=1;
-    int levelCount = 3;
     public Animator(Graphics g) {
-        this.g =g;
+        this.g = g;
         buffer = new BufferedImage(720, 720, BufferedImage.TYPE_INT_RGB);
-        bufferG = buffer.getGraphics();
+        bufG = buffer.getGraphics();
+        bufG.setColor(Color.WHITE);
+        bufG.fillRect(0, 0, 720, 720);
         init();
     }
 
@@ -124,9 +131,11 @@ public class Animator implements Runnable{
             colorGrass = ImageIO.read(new File("images\\color_grass.jpg"));
             grayWall = ImageIO.read(new File("images\\gray_wall.jpg"));
             colorWall = ImageIO.read(new File("images\\color_wall.jpg"));
-            grayMasha = ImageIO.read(new File("images\\gray_maria.jpg"));
-            colorMasha = ImageIO.read(new File("images\\color_maria.jpg"));
-            miha = ImageIO.read(new File("images\\bear.jpg"));
+            grayMasha = ImageIO.read(new File("images\\gray_maria.png"));
+            colorMasha = ImageIO.read(new File("images\\color_maria.png"));
+            anfasMiha = ImageIO.read(new File("images\\bear.png"));
+            leftMiha = ImageIO.read(new File("images\\left.jpg"));
+            rightMiha = ImageIO.read(new File("images\\right.jpg"));
             happyEnd = ImageIO.read(new File("images\\happyEnd.jpg"));
         } catch (Exception e) {
         }
@@ -147,29 +156,72 @@ public class Animator implements Runnable{
             cell.setType(Type.GRASS);
             cellList.add(cell);
         }
-        Cell start = cellList.get(matrixSize * matrixSize - 1);
+        Cell start = cellList.get(matrixHeight * matrixWidth - 1);
 
         Collections.shuffle(cellList);
-        for (int i = 0; i < matrixSize; i++) {
-            for (int j = 0; j < matrixSize; j++) {
-                cells[i][j] = cellList.get(i * matrixSize + j);
+        for (int i = 0; i < matrixHeight; i++) {
+            for (int j = 0; j < matrixWidth; j++) {
+                cells[i][j] = cellList.get(i * matrixHeight + j);
                 cells[i][j].setI(i);
                 cells[i][j].setJ(j);
             }
         }
         heroI = start.getI();
         heroJ = start.getJ();
-        heroX = heroJ*widthOfCell;
-        heroY = heroI*heightOfCell;
         setVisibleAroundMiha();
-        Draw();
 
+    }
+
+    private void loadFromFile(String path) {
+        try {
+            FileReader FR = new FileReader(path);
+            BufferedReader BR = new BufferedReader(FR);
+            ArrayList<String> strings = new ArrayList();
+            String S = "";
+            while ((S = BR.readLine()) != null) {
+                strings.add(S);
+            }
+            matrixHeight = strings.size();
+            matrixWidth = strings.get(0).length();
+            cells = new Cell[matrixHeight][matrixWidth];
+            for (int i = 0; i < matrixHeight; i++) {
+                String types = strings.get(i);
+                for (int j = 0; j < matrixWidth; j++) {
+                    cells[i][j] = new Cell();
+
+                    char type = types.charAt(j);//получение символа из массива строки по индексу
+                    switch (type) {
+                        case '0':
+                            cells[i][j].setType(Type.GRASS);
+                            break;
+                        case '1':
+                            cells[i][j].setType(Type.WALL);
+                            break;
+                        case 'M':
+                            cells[i][j].setType(Type.MASHA);
+                            break;
+                        case 'H':
+                            cells[i][j].setType(Type.GRASS);
+                            heroI = i;
+                            heroJ = j;
+                            break;
+                    }
+                }
+            }
+            heroY = heroI * heightOfCell;
+            heroX = heroJ * widthOfCell;
+            miha=anfasMiha;
+            setVisibleAroundMiha();
+            Draw();
+        } catch (Exception e) {
+
+        }
     }
 
     private void setVisibleAroundMiha() {
         for (int i = heroI - 1; i <= heroI + 1; i++) {
             for (int j = heroJ - 1; j <= heroJ + 1; j++) {
-                if (i >= 0 && j >= 0 && i < matrixSize && j < matrixSize) {
+                if (i >= 0 && j >= 0 && i < matrixHeight && j < matrixWidth) {
                     cells[i][j].setVisible(true);
                 }
             }
@@ -178,148 +230,150 @@ public class Animator implements Runnable{
 
     private void init() {
         loadImages();
-        //generate();
+
     }
 
     void Draw() {
-        bufferG.setColor(Color.WHITE);
-        bufferG.fillRect(0,0,720,720);
-        bufferG.setColor(Color.BLACK);
-        for (int i = 0; i < matrixSize; i++) {
-            for (int j = 0; j < matrixSize; j++) {
+        bufG.setColor(Color.BLACK);
+        for (int i = 0; i < matrixHeight; i++) {
+            for (int j = 0; j < matrixWidth; j++) {
                 int x = j * widthOfCell;
                 int y = i * heightOfCell;
                 if (cells[i][j].getVisible() == true) {
                     if ((Math.abs(i - heroI) <= 1) && (Math.abs(j - heroJ) <= 1)) {
                         switch (cells[i][j].getType()) {
                             case WALL:
-                                bufferG.drawImage(colorWall, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(colorWall, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case GRASS:
-                                bufferG.drawImage(colorGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(colorGrass, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case MASHA:
-                                bufferG.drawImage(colorMasha, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(colorGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(colorMasha, x, y, widthOfCell, heightOfCell, null);
                                 break;
                         }
                     } else {
                         switch (cells[i][j].getType()) {
                             case WALL:
-                                bufferG.drawImage(grayWall, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(grayWall, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case GRASS:
-                                bufferG.drawImage(grayGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(grayGrass, x, y, widthOfCell, heightOfCell, null);
                                 break;
                             case MASHA:
-                                bufferG.drawImage(grayMasha, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(grayGrass, x, y, widthOfCell, heightOfCell, null);
+                                bufG.drawImage(grayMasha, x, y, widthOfCell, heightOfCell, null);
                                 break;
                         }
 
                     }
                 } else {
-                    bufferG.fillRect(x, y, widthOfCell, heightOfCell);
+                    bufG.fillRect(x, y, widthOfCell, heightOfCell);
 
                     //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
                 }
             }
         }
-        bufferG.drawImage(miha, heroX, heroY, widthOfCell, heightOfCell, null);
+        bufG.drawImage(miha, heroX, heroY, widthOfCell, heightOfCell, null);
     }
-    boolean isWin()
-    {
-        if(cells[heroI][heroJ].getType()== Type.MASHA)
+
+    boolean isWin() {
+        if (cells[heroI][heroJ].getType() == Type.MASHA) {
             return true;
-        else{
+        } else {
             return false;
         }
     }
-    private void move(int di,int dj)
-    {
+
+    private void move(int di, int dj) {
         int i = heroI + di;
         int j = heroJ + dj;
-         if (i >= 0 && j >= 0 && i < matrixSize && j < matrixSize)
-         {
-             if(cells[i][j].getType()!=Type.WALL){
-                 heroI = i;
-                 heroJ = j;
-                 setVisibleAroundMiha();
-                 Draw();
-             }
-         }
+        if (i >= 0 && j >= 0 && i < matrixHeight && j < matrixWidth) {
+            if (cells[i][j].getType() != Type.WALL) {
+                heroI = i;
+                heroJ = j;
+                setVisibleAroundMiha();
+            }
+        }
+        Draw();
     }
-    
-    public void left(){
-        move(0,-1);
-    }
-     public void right(){
-        move(0,1);
-    }
-      public void up(){
-        move(-1,0);
-    }
-       public void down(){
-        move(1,0);
-    }
-       @Override
-    public void run(){
-           Font f = new Font("Verdana", Font.PLAIN, 30);
-           g.setFont(f);
-           g.setColor(Color.white);
 
-           //
-           wallCount = 25-1-20;
-           grassCount = 20;
-           matrixSize = 5;
-           for(level=1;level<=levelCount;level++)
-           {
-               generate();
-               g.setColor(Color.white);
-               g.fillRect(0,0,1000,800);
-               g.setColor(Color.BLACK);
-               g.drawString("Уровень "+level, 400, 400);
-               try {
-                   Thread.sleep(2000);
-               } catch (Exception e) {
-               }
-               while(isWin()== false){
-                   g.drawImage(buffer,0,0,720,720,null);
+    public void left() {
+        //miha = leftMiha;
+        move(0, -1);
+    }
 
-                   try {
-                       Thread.sleep(100);
-                   } catch (Exception e) {
-                   }
-                   if(heroX!=heroJ*widthOfCell)
-                   {
-                       if (heroX < heroJ*widthOfCell)
-                           heroX+=heroDx;
-                       else
-                           heroX-=heroDx;
-                       Draw();
-                   }
-                   if(heroY!=heroI*heightOfCell)
-                   {
-                       if (heroY < heroI*heightOfCell)
-                           heroY+=heroDy;
-                       else
-                           heroY-=heroDy;
-                       Draw();
-                   }
-               }
-               g.drawImage(happyEnd, 0, 0, 720,720,null);
-               try {
-                   Thread.sleep(2000);
-               } catch (Exception e) {
-               }
-               matrixSize+=1;
-               //grassCount+=1;
-               wallCount+=1;
-               grassCount=matrixSize*matrixSize-wallCount-1;
-           }
-           g.setColor(Color.WHITE);
-           g.fillRect(0,0,1000,800);
-           g.setColor(Color.BLACK);
-           g.drawString("Игра окончега", 400, 400);
+    public void right() {
+        //miha=rightMiha;
+        move(0, 1);
+    }
 
+    public void up() {
+        //miha=anfasMiha;
+        move(-1, 0);
+    }
+
+    public void down() {
+        //miha=anfasMiha;
+        move(1, 0);
+    }
+
+    @Override
+    public void run() {
+        Font f = new Font("Verdana", Font.PLAIN, 30);
+        g.setFont(f);
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, 1200, 1200);
+        for (int level = 1; level <= levelCount; level++) {
+            loadFromFile("maps\\map" + level + ".txt");
+            g.setColor(Color.WHITE);
+            g.fillRect(0, 0, 720, 720);
+            g.setColor(Color.BLACK);
+            g.drawString("Уровень" + level, 100, 320);
+            try {
+                Thread.sleep(2000);
+            } catch (Exception e) {
+            }
+            while (isWin() == false) {
+                g.drawImage(buffer, 0, 0, 720, 720, null);
+                if (heroX != heroJ * widthOfCell) {
+
+                    if (heroX < heroJ * widthOfCell) {
+                        heroX = heroX + dx;
+
+                    } else {
+                        heroX = heroX - dx;
+                    }
+                    Draw();
+                }
+                if (heroY != heroI * heightOfCell) {
+
+                    if (heroY < heroI * heightOfCell) {
+                        heroY = heroY + dy;
+
+                    } else {
+                        heroY = heroY - dy;
+                    }
+                    Draw();
+                }
+
+                try {
+                    Thread.sleep(25);
+                } catch (Exception e) {
+                }
+            }
+            g.drawImage(happyEnd, 0, 0, 720, 720, null);
+            try {
+                Thread.sleep(2000);
+            } catch (Exception e) {
+            }
+        }
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, 720, 720);
+        g.setColor(Color.BLACK);
+        g.drawString("Игра окончена!", 100, 320);
 
     }
+
 }
